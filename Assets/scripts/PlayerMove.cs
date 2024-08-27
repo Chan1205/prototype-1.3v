@@ -45,11 +45,22 @@ public class PlayerMove : MonoBehaviour
     public float jumpBufferCounter;
 
     [Header("Jump")]
-    public int jump = 2;
-    public int jumpCount;
+    //public int jump = 2;
+    //public int jumpCount;
     public float jumpPower = 8f;
     public int boostPower;
 
+    [Header("Wall")]
+    bool isWallSliding;
+    public float wallSlidingSpeed = 2f;
+    public Transform wallCheck;
+    public LayerMask wallLayer;
+
+    bool isWallJumping;
+    public float wallJumpingDirection;
+    public float wallJumpingTime = 0.2f;
+    public float wallJumpingCounter;
+    public Vector2 wallJumpingPower = new Vector2(8f, 16f);
     
     
 
@@ -58,7 +69,7 @@ public class PlayerMove : MonoBehaviour
         rigid = GetComponent<Rigidbody2D>();
         sprite = GetComponent<SpriteRenderer>();
 
-        jumpCount = jump;
+        //jumpCount = jump;
     }
 
     // Update is called once per frame
@@ -78,10 +89,19 @@ public class PlayerMove : MonoBehaviour
 
        
         
-        Flip();
-
-       
         
+
+        WallSlide();
+        WallJump();
+        
+
+        if (!isWallJumping)
+        {
+            
+            Flip();
+        }
+        
+
     }
 
     void FixedUpdate()
@@ -94,11 +114,16 @@ public class PlayerMove : MonoBehaviour
 
         h = Input.GetAxisRaw("Horizontal");
 
+        if (!isWallJumping)
+        {
+            rigid.velocity = new Vector2(h * walkSpeed, rigid.velocity.y);
+        }
+        
 
-        
-        rigid.velocity = new Vector2(h * walkSpeed, rigid.velocity.y);
-            
-        
+
+
+
+
     }
 
     void Flip()
@@ -112,7 +137,7 @@ public class PlayerMove : MonoBehaviour
         }
     }
 
-    public bool isGround()
+    public bool IsGround()
     {
         if (Physics2D.BoxCast(transform.position, boxSize, 0, -transform.up, castDistance, groundLayer))
         {
@@ -134,45 +159,79 @@ public class PlayerMove : MonoBehaviour
     //jump
     void Jump()
     {
-        //coyote
-        if (isGround())
-        {
-            coyoteTimeCounter = coyoteTime;
-            jumpCount = jump;
-            Debug.Log("isGround");
-        }
-        else
-        {
-            coyoteTimeCounter -= Time.deltaTime;
-        }
-        //////jump buffer
-        //if (Input.GetButtonDown("Jump"))
+        ////coyote
+        //if (IsGround())
         //{
-        //    jumpBufferCounter = jumpBufferTime;
+        //    coyoteTimeCounter = coyoteTime;
+        //    //jumpCount = jump;
+            
         //}
         //else
         //{
-        //    jumpBufferCounter -= Time.deltaTime;
+        //    coyoteTimeCounter -= Time.deltaTime;
         //}
+        ////////jump buffer
+        ////if (Input.GetButtonDown("Jump"))
+        ////{
+        ////    jumpBufferCounter = jumpBufferTime;
+        ////}
+        ////else
+        ////{
+        ////    jumpBufferCounter -= Time.deltaTime;
+        ////}
 
         //jump
-        if (coyoteTimeCounter > 0f && Input.GetButtonDown("Jump") && jumpCount > 0)
+        if (IsGround() && Input.GetButtonDown("Jump"))
         {
             rigid.velocity = Vector2.up * jumpPower;
         }
 
-        if (coyoteTimeCounter < 0f && Input.GetButtonDown("Jump")&& jumpCount > 0)
+        //if (coyoteTimeCounter < 0f && Input.GetButtonDown("Jump"))
+        //{
+        //    rigid.velocity = (Vector2.up * jumpPower);
+        //    //jumpCount--;
+        //    coyoteTimeCounter = 0f;
+        //    Debug.Log("Jump");
+        //}
+
+        if (Input.GetButtonDown("Jump") && wallJumpingCounter > 0f)
         {
-            rigid.velocity = (Vector2.up * jumpPower);
-            jumpCount--;
-            coyoteTimeCounter = 0f;
-            Debug.Log("Jump");
+            isWallJumping = true;
+            rigid.velocity = new Vector2(wallJumpingDirection * wallJumpingPower.x, wallJumpingPower.y);
+            wallJumpingCounter = 0f;
+
+            Invoke(nameof(CancelWallJump), wallJumpingTime + 0.1f);
         }
-        
     }
 
-    
+    void WallJump()
+    {
+        if (isWallSliding)
+        {
+            isWallJumping = false;
+            wallJumpingDirection = -transform.localScale.x;
+            wallJumpingCounter = wallJumpingTime;
 
+            if (transform.localScale.x != wallJumpingDirection)
+            {
+                facingRight = !facingRight;
+                Vector3 ls = transform.localScale;
+                ls.x *= -1;
+                transform.localScale = ls;
+            }
+
+            CancelInvoke(nameof(CancelWallJump));
+        }
+        else if(wallJumpingCounter > 0f)
+        {
+            wallJumpingCounter -= Time.deltaTime;
+        }
+    }
+
+    void CancelWallJump()
+    {
+        isWallJumping = false;
+    }
    
     //dash
     private IEnumerator Dash()
@@ -205,9 +264,12 @@ public class PlayerMove : MonoBehaviour
         if(collision.gameObject.tag == "JumpItem")
         {
             //jump reset
-            jumpCount = 2;
-            jumpCount--;
-
+            float originalGravity = rigid.gravityScale;
+            //jumpCount = 2;
+            
+            rigid.gravityScale = originalGravity;
+            //jumpCount--;
+            
             //deactivate
             collision.gameObject.SetActive(false);
 
@@ -241,9 +303,25 @@ public class PlayerMove : MonoBehaviour
         rigid.velocity = Vector2.zero;
     }
 
+    bool IsWall()
+    {
+        return Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer);
+    }
 
+    void WallSlide()
+    {
+        if(IsWall() && !IsGround() && h != 0)
+        {
+            isWallSliding = true;
+            rigid.velocity = new Vector2(rigid.velocity.x, Mathf.Clamp(rigid.velocity.y, -wallSlidingSpeed, float.MaxValue));
+        }
+        else
+        {
+            isWallSliding = false;
+        }
+    }
 
-
+   
 }
 
 

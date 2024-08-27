@@ -10,6 +10,7 @@ public class GameManager : MonoBehaviour
     public GameObject RestartBtn;
     PlayerMove player;
 
+
     public void Restart()
     {
 
